@@ -1,55 +1,70 @@
 import os
 import json
 from pathlib import Path
+from PyQt6.QtGui import QColor
 
+# Path for saving
 APP_FOLDER = Path.home() / "AppData" / "Local" / "EgansFloatboard" / "Zones"
 APP_FOLDER.mkdir(parents=True, exist_ok=True)
+GLOBAL_CONFIG_FILE = APP_FOLDER / "global_config.json"
 
-GLOBAL_CONFIG_FILE = os.path.join(APP_FOLDER, "global_config.json")
-
-
-def get_zone_file(zone):
-    """Return the path for saving a zone config by its zone name."""
-    safe_name = f"{zone.zone_name}.json"
-    return os.path.join(APP_FOLDER, safe_name)
-
+# Defaults for zones and global
+DEFAULT_GLOBALS = {
+    "rows": 5, "cols": 4, "cell_icon_size": 48, "text_size": 10,
+    "title_text_size": 14, "title_height": 28, "label_height": 16,
+    "scale_offset_x": 1, "scale_offset_y": 1,
+    "bg_color": "#323232", "name_color": "#ffffff", "title_bg": "#9f00f0", "title_text": "#ffffff"
+}
 
 def save_zone_config(zone):
-    """Save a zone’s configuration into its own JSON file."""
+    zone_name = getattr(zone, "title_bar", None)
+    name = zone_name.text() if zone_name else "zone"
+    safe = "".join(c for c in name if c.isalnum() or c in "-_")[:60] or "zone"
     data = {
-        "zone_name": getattr(zone, "zone_name", "Unnamed"),
-        "path": getattr(zone, "folder_path", ""),
+        "zone_name": name,
+        "folder": getattr(zone, "folder", ""),
         "rows": zone.rows,
         "cols": zone.cols,
-        "scale_offset_x": zone.scale_offset_x,
-        "scale_offset_y": zone.scale_offset_y,
+        "cell_icon_size": zone.cell_icon_size,
         "text_size": zone.text_size,
         "title_text_size": zone.title_text_size,
-        "bg_color": str(zone.bg_color.name() if hasattr(zone.bg_color, "name") else zone.bg_color),
-        "name_color": str(zone.name_color.name() if hasattr(zone.name_color, "name") else zone.name_color),
-        "title_bg": str(zone.title_bg.name() if hasattr(zone.title_bg, "name") else zone.title_bg),
-        "title_text": str(zone.title_text.name() if hasattr(zone.title_text, "name") else zone.title_text),
-        "overrides": list(getattr(zone, "local_overrides", []))
+        "title_height": zone.title_height,
+        "label_height": zone.label_height,
+        "scale_offset_x": zone.scale_offset_x,
+        "scale_offset_y": zone.scale_offset_y,
+        "bg_color": zone.bg_color.name(),
+        "name_color": zone.name_color.name(),
+        "title_bg": zone.title_bg.name(),
+        "title_text": zone.title_text.name(),
+        "local_overrides": list(getattr(zone, "local_overrides", [])),
+        "geometry": list(zone.geometry().getRect())
     }
-
-    with open(get_zone_file(zone), "w", encoding="utf-8") as f:
+    path = APP_FOLDER / f"{safe}.json"
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
-
 
 def save_global_config(app):
-    """Save the global configuration (from TrayApp) into global_config.json."""
-    data = {
-        "rows": app.rows,
-        "cols": app.cols,
-        "scale_offset_x": app.scale_offset_x,
-        "scale_offset_y": app.scale_offset_y,
-        "text_size": app.text_size,
-        "title_text_size": app.title_text_size,
-        "bg_color": str(app.bg_color.name() if hasattr(app.bg_color, "name") else app.bg_color),
-        "name_color": str(app.name_color.name() if hasattr(app.name_color, "name") else app.name_color),
-        "title_bg": str(app.title_bg.name() if hasattr(app.title_bg, "name") else app.title_bg),
-        "title_text": str(app.title_text.name() if hasattr(app.title_text, "name") else app.title_text)
-    }
-
+    data = {}
+    for key in DEFAULT_GLOBALS.keys():
+        val = getattr(app, key, None)
+        if isinstance(val, QColor):
+            data[key] = val.name()
+        else:
+            data[key] = val
     with open(GLOBAL_CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+
+def load_global_config():
+    if GLOBAL_CONFIG_FILE.exists():
+        with open(GLOBAL_CONFIG_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return DEFAULT_GLOBALS.copy()
+
+def load_zone_files():
+    zones = []
+    for p in APP_FOLDER.glob("*.json"):
+        if p.name == GLOBAL_CONFIG_FILE.name:
+            continue
+        with open(p, "r", encoding="utf-8") as f:
+            zones.append(json.load(f))
+    return zones
