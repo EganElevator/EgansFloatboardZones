@@ -289,4 +289,4 @@ class Zone(QWidget):
     def auto_save(self):
         name = self.title_bar.text().strip() or "zone"
         safe = "".join(c for c in name if c.isalnum() or c in "-_").strip()[:60] or "zone"
-        saver.save_zone_dict(safe, self.to_dict())
+        saver.save_zone_config(safe, self.to_dict())
