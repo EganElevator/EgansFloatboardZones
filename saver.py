@@ -17,6 +17,7 @@ DEFAULT_GLOBALS = {
 }
 
 def save_zone_config(path, data):
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)

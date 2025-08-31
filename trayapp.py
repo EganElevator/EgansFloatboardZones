@@ -77,8 +77,17 @@ class TrayApp(QApplication):
                 merged = {**DEFAULT_GLOBALS, **cfg}
             except Exception:
                 merged = DEFAULT_GLOBALS.copy()
-        else:
-            merged = DEFAULT_GLOBALS.copy()
+            else:
+                merged = DEFAULT_GLOBALS.copy()
+                # ensure APP_FOLDER exists and write default config immediately
+                APP_FOLDER.mkdir(parents=True, exist_ok=True)
+                serializable = merged.copy()
+                for key in ("bg_color", "name_color", "title_bg", "title_text"):
+                    if hasattr(serializable[key], "name"):
+                        serializable[key] = serializable[key].name()
+                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                    json.dump(serializable, f, indent=2)
+
 
         # normalize colors to QColor
         for key in ("bg_color", "name_color", "title_bg", "title_text"):
@@ -126,10 +135,11 @@ class TrayApp(QApplication):
 
 
     def global_customize(self):
-        dlg = CustomizerDialog(None, self, mode="Global", global_ref=None, on_change=self._on_global_change)
-        dlg.setWindowModality(Qt.WindowModality.NonModal)
-        dlg.show()
-
+        self.global_dlg = CustomizerDialog(
+            None, self, mode="Global", global_ref=None, on_change=self._on_global_change
+        )
+        self.global_dlg.setWindowModality(Qt.WindowModality.NonModal)
+        self.global_dlg.show()
 
         # save updated config
         self._save_global()
