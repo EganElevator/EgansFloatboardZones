@@ -1,10 +1,9 @@
 import sys
-import os
 import json
 from pathlib import Path
-from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QMessageBox
+from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from PyQt6.QtGui import QIcon, QAction
-from PyQt6.QtCore import QRect
+from PyQt6.QtCore import QRect, Qt
 
 from zone import Zone
 from saver import APP_FOLDER, ZONES_DIR, SETTINGS_DIR, save_global_config
@@ -114,6 +113,17 @@ class TrayApp(QApplication):
     def global_customize(self):
         from customizer import CustomizerDialog
         dlg = CustomizerDialog(self.global_config, mode="Global")
+
+        # Save config when dialog is accepted
+        def on_accept():
+            save_global_config(self.global_config)
+            # also refresh existing zones that use global config
+            for z in self.zones:
+                z._apply_title_style()
+                z.refresh_grid()
+
+        dlg.accepted.connect(on_accept)
+
         dlg.setWindowModality(Qt.WindowModality.NonModal)
         dlg.show()
 
