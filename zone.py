@@ -288,5 +288,5 @@ class Zone(QWidget):
 
     def auto_save(self):
         name = self.title_bar.text().strip() or "zone"
-        safe = "".join(c for c in name if c.isalnum() or c in "-_").strip()[:60] or "zone"
+        safe = APP_FOLDER / f"{self.title}.json"
         saver.save_zone_config(safe, self.to_dict())

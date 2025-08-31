@@ -17,11 +17,9 @@ DEFAULT_GLOBALS = {
 }
 
 def save_zone_config(path, data):
+    zone_name = data.get("title", "Zone")
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-    zone_name = getattr(zone, "title_bar", None)
     name = zone_name.text() if zone_name else "zone"
     safe = "".join(c for c in name if c.isalnum() or c in "-_")[:60] or "zone"
     data = {
