@@ -69,14 +69,14 @@ class TrayApp(QApplication):
         else:
             super().__setattr__(name, value)
 
-    def _load_global(self):
-        if CONFIG_FILE.exists():
-            try:
-                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                    cfg = json.load(f)
-                merged = {**DEFAULT_GLOBALS, **cfg}
-            except Exception:
-                merged = DEFAULT_GLOBALS.copy()
+        def _load_global(self):
+            if CONFIG_FILE.exists():
+                try:
+                    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                        cfg = json.load(f)
+                    merged = {**DEFAULT_GLOBALS, **cfg}
+                except Exception:
+                    merged = DEFAULT_GLOBALS.copy()
             else:
                 merged = DEFAULT_GLOBALS.copy()
                 # ensure APP_FOLDER exists and write default config immediately
@@ -88,14 +88,13 @@ class TrayApp(QApplication):
                 with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                     json.dump(serializable, f, indent=2)
 
+            # normalize colors to QColor
+            for key in ("bg_color", "name_color", "title_bg", "title_text"):
+                val = merged[key]
+                if isinstance(val, str):
+                    merged[key] = QColor(val)
 
-        # normalize colors to QColor
-        for key in ("bg_color", "name_color", "title_bg", "title_text"):
-            val = merged[key]
-            if isinstance(val, str):
-                merged[key] = QColor(val)
-
-        return merged
+            return merged
 
 
     def _save_global(self):
