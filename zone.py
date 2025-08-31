@@ -8,7 +8,7 @@ from PyQt6.QtGui import QIcon, QCursor, QColor, QFont
 from PyQt6.QtCore import Qt, QSize, QFileInfo, QPoint
 from PyQt6.QtWidgets import QFileIconProvider, QApplication
 
-import saver
+from saver import ZONES_DIR, save_zone_config
 from customizer import CustomizerDialog
 
 icon_provider = QFileIconProvider()
@@ -288,5 +288,6 @@ class Zone(QWidget):
 
     def auto_save(self):
         name = self.title_bar.text().strip() or "zone"
-        safe = APP_FOLDER / f"{self.title}.json"
-        saver.save_zone_config(safe, self.to_dict())
+        safe = ZONES_DIR / f"{self.title}.json"
+        save_zone_config(safe, self.to_dict())
+

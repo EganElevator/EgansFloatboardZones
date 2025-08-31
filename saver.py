@@ -3,10 +3,18 @@ import json
 from pathlib import Path
 from PyQt6.QtGui import QColor
 
-# Path for saving
-APP_FOLDER = Path.home() / "AppData" / "Local" / "EgansFloatboard" / "Zones"
-APP_FOLDER.mkdir(parents=True, exist_ok=True)
-GLOBAL_CONFIG_FILE = APP_FOLDER / "global_config.json"
+
+# Main app data folder
+APP_FOLDER = Path(os.getenv("LOCALAPPDATA", Path.home())) / "EgansFloatboardZones"
+
+# Separate folders for zones and settings
+ZONES_DIR = APP_FOLDER / "zones"
+SETTINGS_DIR = APP_FOLDER / "settings"
+
+# Ensure they exist
+ZONES_DIR.mkdir(parents=True, exist_ok=True)
+SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+GLOBAL_CONFIG_FILE = SETTINGS_DIR / "global_config.json"
 
 # Defaults for zones and global
 DEFAULT_GLOBALS = {
@@ -16,7 +24,7 @@ DEFAULT_GLOBALS = {
     "bg_color": "#323232", "name_color": "#ffffff", "title_bg": "#9f00f0", "title_text": "#ffffff"
 }
 
-def save_zone_config(path, data):
+def save_zone_config(path: Path, data: dict):
     zone_name = data.get("title", "Zone")
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -41,7 +49,7 @@ def save_zone_config(path, data):
         "local_overrides": list(getattr(zone, "local_overrides", [])),
         "geometry": list(zone.geometry().getRect())
     }
-    path = APP_FOLDER / f"{safe}.json"
+    path = ZONES_DIR / f"{safe}.json"
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
@@ -64,7 +72,7 @@ def load_global_config():
 
 def load_zone_files():
     zones = []
-    for p in APP_FOLDER.glob("*.json"):
+    for p in ZONES_DIR.glob("*.json"):
         if p.name == GLOBAL_CONFIG_FILE.name:
             continue
         with open(p, "r", encoding="utf-8") as f:
