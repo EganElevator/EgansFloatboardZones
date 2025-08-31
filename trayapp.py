@@ -57,8 +57,10 @@ class TrayApp(QApplication):
         self._load_saved_zones()
 
     def __getattr__(self, name):
-        if name in self.global_config:
-            return self.global_config[name]
+        # avoid recursion if global_config is not set yet
+        if "global_config" in self.__dict__:
+            if name in self.global_config:
+                return self.global_config[name]
         raise AttributeError(name)
 
     def __setattr__(self, name, value):
