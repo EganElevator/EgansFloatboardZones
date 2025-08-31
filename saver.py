@@ -4,17 +4,16 @@ from pathlib import Path
 from PyQt6.QtGui import QColor
 
 
-# Main app data folder
-APP_FOLDER = Path(os.getenv("LOCALAPPDATA", Path.home())) / "EgansFloatboardZones"
-
-# Separate folders for zones and settings
-ZONES_DIR = APP_FOLDER / "zones"
-SETTINGS_DIR = APP_FOLDER / "settings"
+# Main folder and settings folder
+MAIN_DIR = Path(os.getenv("LOCALAPPDATA", Path.home())) / "EgansFloatboard" / "Zones"
+ZONES_DIR = MAIN_DIR / "Zones"
+SETTINGS_DIR = MAIN_DIR / "Settings"
 
 # Ensure they exist
+MAIN_DIR.mkdir(parents=True, exist_ok=True)
 ZONES_DIR.mkdir(parents=True, exist_ok=True)
 SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
-GLOBAL_CONFIG_FILE = SETTINGS_DIR / "global_config.json"
+GLOBAL_CONFIG_FILE = SETTINGS_DIR / "GlobalConfig.json"
 
 # Defaults for zones and global
 DEFAULT_GLOBALS = {
@@ -28,8 +27,8 @@ def save_zone_config(path: Path, data: dict):
     zone_name = data.get("title", "Zone")
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    name = zone_name.text() if zone_name else "zone"
-    safe = "".join(c for c in name if c.isalnum() or c in "-_")[:60] or "zone"
+    name = zone_name.text() if zone_name else "Zone"
+    safe = "".join(c for c in name if c.isalnum() or c in "-_")[:60] or "Zone"
     data = {
         "zone_name": name,
         "folder": getattr(zone, "folder", ""),

@@ -9,7 +9,7 @@ from PyQt6.QtGui import QIcon, QAction, QColor
 from PyQt6.QtCore import QRect, QPoint, Qt
 
 from zone import Zone
-from saver import APP_FOLDER, ZONES_DIR, SETTINGS_DIR
+from saver import ZONES_DIR, SETTINGS_DIR
 from customizer import CustomizerDialog
 
 
