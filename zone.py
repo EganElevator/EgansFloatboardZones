@@ -188,39 +188,50 @@ class Zone(QWidget):
 
     # ---------------- Add / Refresh grid ----------------
     def add_files(self, files):
+        from pathlib import Path
         for f in files:
-            if isinstance(f, str):
-                self.file_list.append(f)
+            if isinstance(f, (str, Path)):
+                self.file_list.append(Path(f))
             elif isinstance(f, (tuple, list)) and len(f) == 2:
-                self.file_list.append(f[0])
+                self.file_list.append(Path(f[0]))
         self.adjust_window_size()
         self.refresh_grid()
         self.auto_save()
 
+
     def refresh_grid(self):
+        from pathlib import Path
+
+        # Clear old widgets
         while self.grid_layout.count():
             item = self.grid_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        files = list(self.file_list)
+        # Normalize all paths
+        files = [Path(f) for f in self.file_list]
+
+        # Sort with folders on top if option enabled
         if getattr(QApplication.instance(), "folders_first", True):
-            files.sort(key=lambda f: (not os.path.isdir(f), os.path.basename(f).lower()))
+            files.sort(key=lambda f: (not f.is_dir(), f.name.lower()))
+        else:
+            files.sort(key=lambda f: f.name.lower())
 
         max_chars = max(6, (self.cell_size // 7))
         start_row = 1 if self.search_bar else 0
 
         for idx, path in enumerate(files):
-            name = os.path.basename(path)
+            name = path.name
             if name.lower().endswith((".lnk", ".url")):
                 name = os.path.splitext(name)[0]
             display = name if len(name) <= max_chars else (name[: max_chars - 3] + "...")
 
-            if os.path.isdir(path):
-                icon = QIcon(str(asset_path("folder.png"))) if asset_path("folder.png").exists() \
-                       else icon_provider.icon(QFileInfo(path))
+            if path.is_dir():
+                icon_file = asset_path("folder.png")
+                icon = QIcon(str(icon_file)) if icon_file.exists() \
+                    else icon_provider.icon(QFileInfo(str(path)))
             else:
-                icon = self._extension_icon(path) or QIcon(str(asset_path("placeholder.png")))
+                icon = self._extension_icon(str(path)) or QIcon(str(asset_path("placeholder.png")))
 
             btn = QPushButton()
             btn.setIcon(icon)
@@ -228,18 +239,21 @@ class Zone(QWidget):
             btn.setFixedSize(self.cell_icon_size, self.cell_icon_size)
             btn.setToolTip(name)
             btn.setStyleSheet("border:none; background:transparent;")
-            btn.mouseDoubleClickEvent = lambda e, p=path: (os.startfile(p) if os.path.exists(p) else None)
+            btn.mouseDoubleClickEvent = lambda e, p=path: (os.startfile(str(p)) if p.exists() else None)
 
             label = QLabel(display)
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            font = QFont(); font.setPixelSize(self.text_size)
+            font = QFont()
+            font.setPixelSize(self.text_size)
             label.setFont(font)
             label.setStyleSheet(f"color: {self.name_color.name()};")
             label.setFixedHeight(self.label_height)
             label.setFixedWidth(self.cell_size)
 
             cell = QWidget()
-            v = QVBL(cell); v.setContentsMargins(0, 0, 0, 0); v.setSpacing(2)
+            v = QVBL(cell)
+            v.setContentsMargins(0, 0, 0, 0)
+            v.setSpacing(2)
             v.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
             cell.setFixedSize(self.cell_size, self.cell_size)
             v.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -248,6 +262,7 @@ class Zone(QWidget):
             row = idx // self.cols
             col = idx % self.cols
             self.grid_layout.addWidget(cell, row + start_row, col)
+
 
     # ---------------- Window sizing ----------------
     def adjust_window_size(self):
