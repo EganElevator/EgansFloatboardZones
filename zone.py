@@ -1,29 +1,28 @@
 import os
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QGridLayout, QLabel, QPushButton, QScrollArea,
-    QMenu, QInputDialog, QLineEdit, QFileDialog, QDialog, QVBoxLayout as QVBL
+    QWidget, QVBoxLayout, QGridLayout, QLabel, QPushButton, QScrollArea, QMenu,
+    QInputDialog, QLineEdit, QFileDialog, QVBoxLayout as QVBL, QFileIconProvider, QApplication
 )
 from PyQt6.QtGui import QIcon, QCursor, QColor, QFont
 from PyQt6.QtCore import Qt, QSize, QFileInfo, QPoint
-from PyQt6.QtWidgets import QFileIconProvider, QApplication
 
-from saver import ZONES_DIR, save_zone_config
+import saver
+from saver import ZONES_DIR, save_zone_config, DEFAULT_GLOBALS
 from customizer import CustomizerDialog
 
 icon_provider = QFileIconProvider()
 
-
 class Zone(QWidget):
-    def __init__(self, title="Zone", folder=None, defaults: dict | None = None):
+    def __init__(self, title: str = "Zone", folder: str | None = None, defaults: dict | None = None):
         super().__init__(None)
 
-        # --- defaults come from saver.py ---
-        base_defaults = saver.DEFAULT_GLOBALS.copy()
+        base_defaults = DEFAULT_GLOBALS.copy()
         if defaults:
             base_defaults.update(defaults)
         defaults = base_defaults
 
+        # core config
         self.rows = defaults["rows"]
         self.cols = defaults["cols"]
         self.cell_icon_size = defaults["cell_icon_size"]
@@ -46,11 +45,14 @@ class Zone(QWidget):
         self.drag_pos: QPoint | None = None
         self.file_list: list[str] = []
         self.folder = None
-        self.local_overrides: set = set()
+        self.local_overrides: set[str] = set()
 
         if folder:
             self.folder = folder
-            self.file_list = [os.path.join(folder, f) for f in os.listdir(folder)]
+            try:
+                self.file_list = [os.path.join(folder, f) for f in os.listdir(folder)]
+            except Exception:
+                self.file_list = []
 
         # Window flags
         self.setWindowFlags(
@@ -78,19 +80,14 @@ class Zone(QWidget):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setStyleSheet(f"background-color: {self.bg_color.name()}; border:none;")
-
         self.grid_widget = QWidget()
         self.grid_layout = QGridLayout(self.grid_widget)
         self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        self.grid_layout.setContentsMargins(
-            self.scale_offset_x, self.scale_offset_y,
-            self.scale_offset_x, self.scale_offset_y
-        )
+        self.grid_layout.setContentsMargins(self.scale_offset_x, self.scale_offset_y, self.scale_offset_x, self.scale_offset_y)
         self.grid_layout.setSpacing(8)
         self.grid_widget.setStyleSheet(f"background-color: {self.bg_color.name()};")
         self.grid_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.grid_widget.customContextMenuRequested.connect(self.open_zone_menu)
-
         self.scroll_area.setWidget(self.grid_widget)
         self.layout.addWidget(self.scroll_area)
 
@@ -104,7 +101,7 @@ class Zone(QWidget):
             f"font-size: {self.title_text_size}px; font-weight: bold; padding-left:2px;"
         )
 
-    def _extension_icon(self, path):
+    def _extension_icon(self, path: str) -> QIcon:
         ext = os.path.splitext(path)[1]
         if ext == "":
             return icon_provider.icon(QFileInfo(path))
@@ -131,17 +128,12 @@ class Zone(QWidget):
         menu = QMenu(self)
         menu.addAction("Change Folder", self.change_folder)
         menu.addAction("Rename Zone", self.rename_zone)
-
         lock_action = menu.addAction("Lock Movement")
         lock_action.setCheckable(True)
         lock_action.setChecked(self.locked)
-        lock_action.triggered.connect(self._toggle_lock_from_action)
-
+        lock_action.triggered.connect(lambda checked: setattr(self, "locked", checked))
         menu.addAction("Customize Zone", self.customize_zone_dialog)
         menu.exec(QCursor.pos())
-
-    def _toggle_lock_from_action(self, checked):
-        self.locked = checked
 
     # ---------------- Zone background menu - search toggle ----------------
     def open_zone_menu(self, pos):
@@ -160,13 +152,13 @@ class Zone(QWidget):
         text = (text or "").strip().lower()
         for i in range(self.grid_layout.count()):
             item = self.grid_layout.itemAt(i)
-            widget = item.widget()
-            if not widget or widget is self.search_bar:
+            w = item.widget()
+            if not w or w is self.search_bar:
                 continue
-            label = widget.findChild(QLabel)
+            label = w.findChild(QLabel)
             if label:
                 lbl_text = label.text().lower()
-                widget.setVisible(text == "" or text in lbl_text)
+                w.setVisible(text == "" or text in lbl_text)
 
     # ---------------- Rename / Change folder ----------------
     def rename_zone(self):
@@ -179,7 +171,10 @@ class Zone(QWidget):
         folder = QFileDialog.getExistingDirectory(self, "Select Folder")
         if folder:
             self.folder = folder
-            self.file_list = [os.path.join(folder, f) for f in os.listdir(folder)]
+            try:
+                self.file_list = [os.path.join(folder, f) for f in os.listdir(folder)]
+            except Exception:
+                self.file_list = []
             self.adjust_window_size()
             self.refresh_grid()
             self.auto_save()
@@ -187,8 +182,7 @@ class Zone(QWidget):
     # ---------------- Customize dialog (LIVE) ----------------
     def customize_zone_dialog(self):
         app = QApplication.instance()
-        dlg = CustomizerDialog(self, self, mode="Local", global_ref=app,
-                               on_change=getattr(app, "_on_global_change", None))
+        dlg = CustomizerDialog(self, self, mode="Local", global_ref=app, on_change=getattr(app, "_on_global_change", None))
         dlg.setWindowModality(Qt.WindowModality.NonModal)
         dlg.show()
 
@@ -210,13 +204,13 @@ class Zone(QWidget):
                 item.widget().deleteLater()
 
         max_chars = max(6, (self.cell_size // 7))
+        start_row = 1 if self.search_bar else 0
 
         for idx, path in enumerate(self.file_list):
             name = os.path.basename(path)
             if name.lower().endswith((".lnk", ".url")):
                 name = os.path.splitext(name)[0]
-
-            display_name = name if len(name) <= max_chars else (name[: max_chars - 3] + "...")
+            display = name if len(name) <= max_chars else (name[: max_chars - 3] + "...")
 
             if os.path.isdir(path):
                 icon = QIcon("Folder.png") if os.path.exists("Folder.png") else icon_provider.icon(QFileInfo(path))
@@ -231,7 +225,7 @@ class Zone(QWidget):
             btn.setStyleSheet("border:none; background:transparent;")
             btn.mouseDoubleClickEvent = lambda e, p=path: (os.startfile(p) if os.path.exists(p) else None)
 
-            label = QLabel(display_name)
+            label = QLabel(display)
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             font = QFont(); font.setPixelSize(self.text_size)
             label.setFont(font)
@@ -240,9 +234,7 @@ class Zone(QWidget):
             label.setFixedWidth(self.cell_size)
 
             cell = QWidget()
-            v = QVBoxLayout(cell)
-            v.setContentsMargins(0, 0, 0, 0)
-            v.setSpacing(2)
+            v = QVBL(cell); v.setContentsMargins(0, 0, 0, 0); v.setSpacing(2)
             v.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
             cell.setFixedSize(self.cell_size, self.cell_size)
             v.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -250,7 +242,7 @@ class Zone(QWidget):
 
             row = idx // self.cols
             col = idx % self.cols
-            self.grid_layout.addWidget(cell, row + (1 if self.search_bar else 0), col)
+            self.grid_layout.addWidget(cell, row + start_row, col)
 
     # ---------------- Window sizing ----------------
     def adjust_window_size(self):
@@ -265,7 +257,7 @@ class Zone(QWidget):
         self.resize(width, height)
 
     # ---------------- Persistence ----------------
-    def to_dict(self):
+    def to_dict(self) -> dict:
         geom = self.geometry()
         return {
             "zone_name": self.title_bar.text(),
@@ -283,11 +275,8 @@ class Zone(QWidget):
             "name_color": self.name_color.name(),
             "title_bg": self.title_bg.name(),
             "title_text": self.title_text.name(),
-            "geometry": [geom.x(), geom.y(), geom.width(), geom.height()]
+            "geometry": [geom.x(), geom.y(), geom.width(), geom.height()],
         }
 
     def auto_save(self):
-        name = self.title_bar.text().strip() or "zone"
-        safe = ZONES_DIR / f"{self.title}.json"
-        save_zone_config(safe, self.to_dict())
-
+        save_zone_config(self)

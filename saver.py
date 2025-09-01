@@ -1,79 +1,78 @@
-import os
-import json
+from __future__ import annotations
+import os, json
 from pathlib import Path
+from typing import Any, Dict
 from PyQt6.QtGui import QColor
 
+# Root: %LOCALAPPDATA%/EgansFloatboard/Zones  (fallback: HOME)
+BASE_DIR = Path(os.getenv("LOCALAPPDATA", Path.home())) / "EgansFloatboard" / "Zones"
+ZONES_DIR = BASE_DIR / "Zones"
+SETTINGS_DIR = BASE_DIR / "Settings"
+GLOBAL_CONFIG_FILE = SETTINGS_DIR / "global_config.json"
 
-# Main folder and settings folder
-MAIN_DIR = Path(os.getenv("LOCALAPPDATA", Path.home())) / "EgansFloatboard" / "Zones"
-ZONES_DIR = MAIN_DIR / "Zones"
-SETTINGS_DIR = MAIN_DIR / "Settings"
-
-# Ensure they exist
-MAIN_DIR.mkdir(parents=True, exist_ok=True)
-ZONES_DIR.mkdir(parents=True, exist_ok=True)
-SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
-GLOBAL_CONFIG_FILE = SETTINGS_DIR / "GlobalConfig.json"
-
-# Defaults for zones and global
-DEFAULT_GLOBALS = {
-    "rows": 5, "cols": 4, "cell_icon_size": 48, "text_size": 10,
-    "title_text_size": 14, "title_height": 28, "label_height": 16,
-    "scale_offset_x": 1, "scale_offset_y": 1,
-    "bg_color": "#323232", "name_color": "#ffffff", "title_bg": "#9f00f0", "title_text": "#ffffff"
+DEFAULT_GLOBALS: Dict[str, Any] = {
+    "rows": 5,
+    "cols": 4,
+    "cell_icon_size": 48,
+    "text_size": 10,
+    "title_text_size": 14,
+    "title_height": 28,
+    "label_height": 16,
+    "scale_offset_x": 1,
+    "scale_offset_y": 1,
+    "bg_color": "#323232",
+    "name_color": "#ffffff",
+    "title_bg": "#9f00f0",
+    "title_text": "#ffffff",
 }
 
-def save_zone_config(path: Path, data: dict):
-    zone_name = data.get("title", "Zone")
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    name = zone_name.text() if zone_name else "Zone"
-    safe = "".join(c for c in name if c.isalnum() or c in "-_")[:60] or "Zone"
-    data = {
-        "zone_name": name,
-        "folder": getattr(zone, "folder", ""),
-        "rows": zone.rows,
-        "cols": zone.cols,
-        "cell_icon_size": zone.cell_icon_size,
-        "text_size": zone.text_size,
-        "title_text_size": zone.title_text_size,
-        "title_height": zone.title_height,
-        "label_height": zone.label_height,
-        "scale_offset_x": zone.scale_offset_x,
-        "scale_offset_y": zone.scale_offset_y,
-        "bg_color": zone.bg_color.name(),
-        "name_color": zone.name_color.name(),
-        "title_bg": zone.title_bg.name(),
-        "title_text": zone.title_text.name(),
-        "local_overrides": list(getattr(zone, "local_overrides", [])),
-        "geometry": list(zone.geometry().getRect())
-    }
-    path = ZONES_DIR / f"{safe}.json"
+# Ensure folders exist
+for d in (ZONES_DIR, SETTINGS_DIR):
+    d.mkdir(parents=True, exist_ok=True)
+
+def _serialize(v: Any) -> Any:
+    return v.name() if isinstance(v, QColor) else v
+
+def safe_name(name: str) -> str:
+    s = "".join(c for c in (name or "") if c.isalnum() or c in "-_ ").strip()
+    s = s.replace(" ", "_")
+    return (s or "Zone")[:60]
+
+def save_zone_config(zone_or_dict) -> Path:
+    """Accepts a Zone instance (preferred) or a dict from Zone.to_dict()."""
+    data = zone_or_dict.to_dict() if hasattr(zone_or_dict, "to_dict") else dict(zone_or_dict)
+    name = data.get("zone_name") or "Zone"
+    path = ZONES_DIR / f"{safe_name(name)}.json"
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+    return path
 
-def save_global_config(app):
-    data = {}
-    for key in DEFAULT_GLOBALS.keys():
-        val = getattr(app, key, None)
-        if isinstance(val, QColor):
-            data[key] = val.name()
-        else:
-            data[key] = val
-    with open(GLOBAL_CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+def load_zone_files() -> list[Dict[str, Any]]:
+    zones: list[Dict[str, Any]] = []
+    for p in ZONES_DIR.glob("*.json"):
+        if p.name.lower() == GLOBAL_CONFIG_FILE.name.lower():
+            continue
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                zones.append(json.load(f))
+        except Exception:
+            pass
+    return zones
 
-def load_global_config():
+def load_global_config() -> Dict[str, Any]:
     if GLOBAL_CONFIG_FILE.exists():
-        with open(GLOBAL_CONFIG_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(GLOBAL_CONFIG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
     return DEFAULT_GLOBALS.copy()
 
-def load_zone_files():
-    zones = []
-    for p in ZONES_DIR.glob("*.json"):
-        if p.name == GLOBAL_CONFIG_FILE.name:
-            continue
-        with open(p, "r", encoding="utf-8") as f:
-            zones.append(json.load(f))
-    return zones
+def save_global_config(app_or_dict) -> Path:
+    if isinstance(app_or_dict, dict):
+        data = app_or_dict
+    else:
+        data = {k: _serialize(getattr(app_or_dict, k, DEFAULT_GLOBALS[k])) for k in DEFAULT_GLOBALS}
+    with open(GLOBAL_CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    return GLOBAL_CONFIG_FILE
