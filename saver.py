@@ -10,6 +10,14 @@ ZONES_DIR = BASE_DIR / "Zones"
 SETTINGS_DIR = BASE_DIR / "Settings"
 GLOBAL_CONFIG_FILE = SETTINGS_DIR / "global_config.json"
 
+# Project Root
+ASSETS_DIR = Path(__file__).resolve().parent / "Assets"
+ASSETS_DIR.mkdir(exist_ok=True)
+
+def asset_path(name: str) -> Path:
+    p = ASSETS_DIR / name
+    return p if p.exists() else Path(name)  # fallback
+
 DEFAULT_GLOBALS: Dict[str, Any] = {
     "rows": 5,
     "cols": 4,
@@ -24,6 +32,7 @@ DEFAULT_GLOBALS: Dict[str, Any] = {
     "name_color": "#ffffff",
     "title_bg": "#9f00f0",
     "title_text": "#ffffff",
+    "folders_first": True,
 }
 
 # Ensure folders exist

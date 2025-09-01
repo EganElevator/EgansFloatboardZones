@@ -3,9 +3,10 @@ from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QSize
 
+from saver import asset_path  # new import
 
 def human_size(path):
-    """Return human readable size string for file."""
+    """Return human-readable size string for a file."""
     try:
         size = os.path.getsize(path)
         for unit in ["B", "KB", "MB", "GB", "TB"]:
@@ -16,37 +17,34 @@ def human_size(path):
         return ""
     return ""
 
-
 class FileIcon(QFrame):
     def __init__(self, path, icon_size=64, parent=None):
         super().__init__(parent)
         self.path = path
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setStyleSheet("background: transparent;")
-
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
         layout.setSpacing(2)
 
-        # Load icon
-        icon = QIcon("placeholder.png")
+        # Load icon using Assets
+        fallback = asset_path("placeholder.png")
         if os.path.exists(path):
             if os.path.isfile(path):
                 icon = QIcon(path)
             else:
-                icon = QIcon("placeholder.png")
+                icon = QIcon(str(fallback)) if fallback.exists() else QIcon()
+        else:
+            icon = QIcon(str(fallback)) if fallback.exists() else QIcon()
 
         self.icon_label = QLabel()
         self.icon_label.setPixmap(icon.pixmap(QSize(icon_size, icon_size)))
         self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Display name (hide .lnk/.url extension)
+        # Display name (strip .lnk/.url extension)
         name = os.path.basename(path)
         base, ext = os.path.splitext(name)
-        if ext.lower() in [".lnk", ".url"]:
-            label_text = base
-        else:
-            label_text = name
+        label_text = base if ext.lower() in [".lnk", ".url"] else name
 
         self.text_label = QLabel(label_text)
         self.text_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)

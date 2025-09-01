@@ -8,7 +8,7 @@ from PyQt6.QtGui import QIcon, QCursor, QColor, QFont
 from PyQt6.QtCore import Qt, QSize, QFileInfo, QPoint
 
 import saver
-from saver import ZONES_DIR, save_zone_config, DEFAULT_GLOBALS
+from saver import ZONES_DIR, save_zone_config, DEFAULT_GLOBALS, asset_path
 from customizer import CustomizerDialog
 
 icon_provider = QFileIconProvider()
@@ -203,19 +203,24 @@ class Zone(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
+        files = list(self.file_list)
+        if getattr(QApplication.instance(), "folders_first", True):
+            files.sort(key=lambda f: (not os.path.isdir(f), os.path.basename(f).lower()))
+
         max_chars = max(6, (self.cell_size // 7))
         start_row = 1 if self.search_bar else 0
 
-        for idx, path in enumerate(self.file_list):
+        for idx, path in enumerate(files):
             name = os.path.basename(path)
             if name.lower().endswith((".lnk", ".url")):
                 name = os.path.splitext(name)[0]
             display = name if len(name) <= max_chars else (name[: max_chars - 3] + "...")
 
             if os.path.isdir(path):
-                icon = QIcon("Folder.png") if os.path.exists("Folder.png") else icon_provider.icon(QFileInfo(path))
+                icon = QIcon(str(asset_path("folder.png"))) if asset_path("folder.png").exists() \
+                       else icon_provider.icon(QFileInfo(path))
             else:
-                icon = self._extension_icon(path)
+                icon = self._extension_icon(path) or QIcon(str(asset_path("placeholder.png")))
 
             btn = QPushButton()
             btn.setIcon(icon)

@@ -6,15 +6,13 @@ from PyQt6.QtCore import QRect, Qt
 
 from zone import Zone
 import saver
-from saver import ZONES_DIR, SETTINGS_DIR, DEFAULT_GLOBALS, load_global_config, save_global_config
+from saver import ZONES_DIR, SETTINGS_DIR, DEFAULT_GLOBALS, load_global_config, save_global_config, asset_path
 from customizer import CustomizerDialog
 
 def _icon_from_disk() -> QIcon:
-    here = Path(__file__).resolve().parent
-    for candidate in ("icon.png", "tray.png"):
-        p = here / candidate
-        if p.exists():
-            return QIcon(str(p))
+    p = asset_path("icon.png")
+    if p.exists():
+        return QIcon(str(p))
     ic = QIcon.fromTheme("applications-system")
     return ic if not ic.isNull() else QIcon()
 
@@ -79,7 +77,7 @@ class TrayApp(QApplication):
             if hasattr(z, "auto_save"): z.auto_save()
 
     def global_customize(self):
-        dlg = CustomizerDialog(None, self, mode="Global", on_change=self._on_global_change)
+        dlg = CustomizerDialog(self.tray, self, mode="Global", on_change=self._on_global_change)
         dlg.setWindowModality(Qt.WindowModality.NonModal)
         dlg.show()
 
